@@ -1,5 +1,4 @@
-# Rest client
-##### Supported methods: POST, PUT, GET etc
+# Restful php client
 ## Installation
 
 Installation with Composer
@@ -15,7 +14,7 @@ Add in composer.json
     ],
     "require": {
         ...
-        "turkevich/rest-client":"1.0"
+        "turkevich/rest-client":"@dev"
     }
 ~~~
 
@@ -23,7 +22,11 @@ Well done!
 
 ## Example call
 ~~~
-Client::call(Client::GET, 'http://myapi.com/api.php', ['param1' => 1, 'param1' => 2]);
+    $result = (new Client(Client::POST, $url, $data))
+        ->setContentType(Client::JSON)
+        ->setUserAgent('Yah')
+        ->setHttpAuth('aloha', '123123123')
+        ->call();
 ~~~
 
 Enjoy, guys!

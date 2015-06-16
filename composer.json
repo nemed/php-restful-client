@@ -12,6 +12,15 @@
             "email": "cyril.turkevich@gmail.com"
         }
     ],
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/turkevich/xml-formatter.git"
+        }
+    ],
+    "require": {
+        "turkevich/xml-formatter":"@dev"
+    },
     "autoload": {
         "psr-4": {"ctur\\": ""}
     }
