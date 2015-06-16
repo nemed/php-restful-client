@@ -1,5 +1,5 @@
 <?php
-namespace kfosoft\rest;
+namespace ctur\rest;
 
 use Exception;
 

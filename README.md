@@ -9,21 +9,13 @@ Add in composer.json
     "repositories": [
         ...
         {
-            "type": "package",
-            "package": {
-                "name": "turkevich/rest-client",
-                "version": "1.0",
-                "source": {
-                    "url": "git@github.com:turkevich/rest-client.git",
-                    "type": "git",
-                    "reference": "master"
-                }
-            }
+            "type": "git",
+            "url": "https://github.com/turkevich/rest-client.git"
         }
     ],
     "require": {
         ...
-        "turkevich/rest-client":"*"
+        "turkevich/rest-client":"1.0"
     }
 ~~~
 
