@@ -1,0 +1,31 @@
+{
+    "name": "turkevich/php-restful-client",
+    "description": "PHP RESTful Client",
+    "keywords": [
+        "php",
+        "php rest",
+        "php rest client",
+        "rest client",
+        "rest",
+        "php restful",
+        "php restful client",
+        "restful client",
+        "restful"
+    ],
+    "type": "library",
+    "authors": [
+        {
+            "name": "Cyril Turkevich",
+            "email": "cyril.turkevich@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.0"
+    },
+    "require-dev": {
+        "turkevich/php-xml-helper":"*"
+    },
+    "autoload": {
+        "psr-4": {"ctur\\": ""}
+    }
+}
