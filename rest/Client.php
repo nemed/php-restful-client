@@ -7,10 +7,9 @@ use ctur\helpers\XML;
 /**
  * RESTful client.
  * Example:
- * (new Client(Client::POST, $url, $data))->setContentType(Client::JSON)->setUserAgent('Yah')->setHttpAuth('aloha', '123123123')->call();
+ * (new Client('path_to_cookie_file'))->setContentType(Client::JSON)->setUserAgent('Yah')->setHttpAuth('aloha', '123123123')->call();
  * Generate link and create request to http://myapi.com/api.php?param1=1&param2=2
- * Supported methods: POST, PUT, GET, DELETE
- *
+ * Supported methods: POST, PUT, PATCH, GET, DELETE & CUSTOM
  * @package ctur\rest
  * @author Cyril Turkevich
  */
@@ -19,52 +18,84 @@ class Client
     const GET = 'get';
     const POST = 'post';
     const PUT = 'put';
+    const PATCH = 'patch';
     const DELETE = 'delete';
+    const CUSTOM = 'custom';
 
     const JSON = 'application/json';
     const XML = 'application/xml';
 
-    /* @var string $_contentType content type for this request. */
+    /** @var string $_contentType content type for this request. */
     protected $_contentType = self::JSON;
 
-    /* @var resource $_request curl request resource. */
+    /** @var resource $_request curl request resource. */
     protected $_request = null;
 
-    /* @var string $_userAgent user agent. */
+    /** @var string $_userAgent user agent. */
     protected $_userAgent = 'RESTful PHP Client/1.0';
 
-    /* @var bool $_httpAuth if your request to api with http auth, also you must set username & password. */
+    /** @var bool $_httpAuth if your request to api with http auth, also you must set username & password. */
     protected $_httpAuth = false;
 
-    /* @var string $_url url to api service. */
+    /** @var string $_url url to api service. */
     protected $_url = '';
 
-    /* @var string $_username http auth username. */
+    /** @var string $_username http auth username. */
     protected $_username = '';
 
-    /* @var string $_password http auth password. */
+    /** @var string $_password http auth password. */
     protected $_password = '';
 
-    /* @var string $_method REST method use class const POST, PUT, GET, DELETE */
+    /** @var string $_method REST method use class const POST, PUT, GET, DELETE */
     protected $_method;
 
-    /* @var array|null $data array("param" => "value") ==> index.php?param=value */
+    /** @var array|null $data array("param" => "value") ==> index.php?param=value */
     protected $_data;
 
-    /* @var array|null $_requestContentType curl request ContentType. */
+    /** @var array|null $_requestContentType curl request ContentType. */
     protected $_requestContentType;
 
-    /* @var bool $_useRequestContentType use curl request ContentType. */
-    protected $_useRequestContentType = false;
+    /** @var bool $_useResponseContentType use curl response ContentType. */
+    protected $_useResponseContentType = false;
+
+    /** @var null|string $_cookieFilePath cookie file path. */
+    protected $_cookieFilePath = null;
+
+    /** @var bool $_paramsIsSet request params is set? */
+    protected $_paramsIsSet = false;
+
+    /** @var null|string $_customType custom request method. */
+    protected $_customType = null;
+
+    /** @var bool $_usePost use post params for custom request. */
+    protected $_usePost = false;
+
+    /**
+     * Constructor.
+     */
+    public function __construct()
+    {
+        /* Set cookie file */
+        $this->_cookieFilePath = tempnam('/tmp','cookie');
+    }
+
+    /**
+     * Destructor.
+     */
+    public function __destruct()
+    {
+        /* Unlink cookie file */
+        unlink($this->_cookieFilePath);
+    }
 
     /**
      * @param int $method use class const POST, PUT, GET, DELETE
      * @param string $url url to api
      * @param array|null $data array("param" => "value") ==> index.php?param=value
-     * @param bool $useRequestContentType
+     * @return $this
      * @throws Exception
      */
-    public function __construct($method, $url, array $data = null, $useRequestContentType = false)
+    public function requestParams($method, $url, array $data = null)
     {
         if (!method_exists($this, $method)) {
             throw new Exception('Undefined RESTful method!');
@@ -73,7 +104,10 @@ class Client
         $this->_method = $method;
         $this->_url = $url;
         $this->_data = $data;
-        $this->_useRequestContentType = $useRequestContentType;
+
+        $this->_paramsIsSet = true;
+
+        return $this;
     }
 
     /**
@@ -86,11 +120,11 @@ class Client
     }
 
     /**
-     * Apply REST PUT method.
+     * Apply REST GET method.
      */
-    protected function put()
+    protected function get()
     {
-        curl_setopt($this->_request, CURLOPT_PUT, 1);
+        $this->setGetData();
     }
 
     /**
@@ -99,17 +133,25 @@ class Client
     protected function post()
     {
         curl_setopt($this->_request, CURLOPT_POST, 1);
-        $this->_data && curl_setopt($this->_request, CURLOPT_POSTFIELDS, $this->getFormattedData());
+        $this->setPostData();
     }
 
     /**
-     * Apply REST GET method.
+     * Apply REST PUT method.
      */
-    protected function get()
+    protected function put()
     {
-        if ($this->_data) {
-            $this->_url = sprintf("%s?%s", $this->_url, http_build_query($this->_data));
-        }
+        curl_setopt($this->_request, CURLOPT_PUT, 1);
+        $this->setPostData();
+    }
+
+    /**
+     * Apply REST PATCH method.
+     */
+    protected function patch()
+    {
+        curl_setopt($this->_request, CURLOPT_CUSTOMREQUEST, 'PATCH');
+        $this->setPostData();
     }
 
     /**
@@ -117,8 +159,64 @@ class Client
      */
     protected function delete()
     {
-        curl_setopt($this->_request, CURLOPT_CUSTOMREQUEST, "DELETE");
-        $this->_data && curl_setopt($this->_request, CURLOPT_POSTFIELDS, $this->getFormattedData());
+        curl_setopt($this->_request, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        $this->setPostData();
+    }
+
+    /**
+     * Apply REST CUSTOM method.
+     */
+    protected function custom()
+    {
+        curl_setopt($this->_request, CURLOPT_CUSTOMREQUEST, $this->_customType);
+        $this->_usePost ? $this->setPostData() : $this->setGetData();
+    }
+
+    /**
+     * Use cookie.
+     */
+    protected function useCookie()
+    {
+        curl_setopt($this->_request, CURLOPT_COOKIEJAR, $this->_cookieFilePath);
+        curl_setopt($this->_request, CURLOPT_COOKIEFILE, $this->_cookieFilePath);
+    }
+
+    /**
+     * Use content type from response.
+     * @param bool $value
+     * @return $this
+     */
+    public function useResponseContentType($value = true)
+    {
+        $this->_useResponseContentType = $value;
+
+        return $this;
+    }
+
+    /**
+     * Use post data with custom method.
+     * @param bool $value
+     * @return $this
+     */
+    public function usePost($value = true)
+    {
+        $this->_usePost = $value;
+
+        return $this;
+    }
+
+    /**
+     * @param string $username username for http auth.
+     * @param string $password password for http auth.
+     * @return $this
+     */
+    public function useHttpAuth($username, $password)
+    {
+        $this->_httpAuth = true;
+        $this->_username = $username;
+        $this->_password = $password;
+
+        return $this;
     }
 
     /**
@@ -166,6 +264,28 @@ class Client
     }
 
     /**
+     * Set GET data.
+     */
+    protected function setGetData()
+    {
+        if (!empty($this->_data)) {
+            $this->_url = sprintf("%s?%s", $this->_url, http_build_query($this->_data));
+        }
+    }
+
+    /**
+     * Set POST data.
+     * @throws Exception
+     */
+    protected function setPostData()
+    {
+        if (!empty($this->_data)) {
+            curl_setopt($this->_request, CURLOPT_POST, count($this->_data));
+            curl_setopt($this->_request, CURLOPT_POSTFIELDS, $this->getFormattedData());
+        }
+    }
+
+    /**
      * @param string $value content type for this request.
      * @return $this
      */
@@ -188,42 +308,35 @@ class Client
     }
 
     /**
-     * @param string $username username for http auth.
-     * @param string $password password for http auth.
-     * @return $this
-     */
-    public function setHttpAuth($username, $password)
-    {
-        $this->_httpAuth = true;
-        $this->_username = $username;
-        $this->_password = $password;
-
-        return $this;
-    }
-
-    /**
      * @param bool $asObject if you need get result as object.
      * @return array|\stdClass result.
      * @throws Exception if curl request have errors.
      */
     public function call($asObject = false)
     {
+        if (!$this->_paramsIsSet) {
+            throw new Exception('Required params isn`t set. Please use requestParams()');
+        }
+
         $this->_request = curl_init();
 
         /* Set user agent & content type. */
         curl_setopt($this->_request, CURLOPT_USERAGENT, $this->_userAgent);
-        curl_setopt($this->_request, CURLOPT_HTTPHEADER, ['Content-Type:' . $this->_contentType]);
         curl_setopt($this->_request, CURLOPT_HTTPHEADER, ['Accept:' . $this->_contentType]);
+        curl_setopt($this->_request, CURLOPT_HTTPHEADER, ['Content-Type:' . $this->_contentType]);
 
         /* Call REST method. */
         $this->{$this->_method}();
 
         /* Optional Authentication: */
-        $this->_httpAuth && $this->httpAuth();
+        !empty($this->_httpAuth) && $this->httpAuth();
 
         /* Set url for api request */
         curl_setopt($this->_request, CURLOPT_URL, $this->_url);
         curl_setopt($this->_request, CURLOPT_RETURNTRANSFER, true);
+
+        /* Set cookie */
+        !empty($this->_cookieFilePath) && $this->useCookie();
 
         /* Call api */
         $result = curl_exec($this->_request);
@@ -233,7 +346,7 @@ class Client
             throw new Exception(curl_error($this->_request), curl_errno($this->_request));
         }
 
-        if ($this->_useRequestContentType) {
+        if ($this->_useResponseContentType) {
             /* Set request ContentType */
             $this->_requestContentType = curl_getinfo($this->_request, CURLINFO_CONTENT_TYPE);
 
@@ -242,7 +355,6 @@ class Client
                 $this->_requestContentType = $this->_requestContentType[0];
             }
         }
-
 
         /* End request */
         curl_close($this->_request);
