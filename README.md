@@ -34,17 +34,17 @@ Well done!
 
 #### Example call to url with http auth
 ~~~
-    $result = (new Client())->requestParams(Client::POST, $url, $data)->usePost()->call();
+    $result = (new Client())->requestParams(Client::POST, $url, $data)->useHttpAuth($username, $password)->call();
 ~~~
 
 #### Use response content type
 ~~~
-    $result = (new Client())->requestParams(Client::POST, $url, $data)->usePost()->call();
+    $result = (new Client())->requestParams(Client::PATCH, $url, $data)->useResponseContentType()->call();
 ~~~
 
 #### Get result in stdClass
 ~~~
-    $result = (new Client())->requestParams(Client::POST, $url, $data)->usePost()->call(true);
+    $result = (new Client())->requestParams(Client::PUT, $url, $data)->usePost()->call(true);
 ~~~
 
 
